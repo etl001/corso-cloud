@@ -1,0 +1,6 @@
+apiVersion: v2
+name: etl-nginx
+description: A Helm chart to install nginx
+type: application
+version: 1.0.2
+appVersion: 1.0.2

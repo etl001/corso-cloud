@@ -1,0 +1,5 @@
+image:
+  name: "nginxinc/nginx-unprivileged"
+  tag: "1.18"
+ingresshost: "XXXX.northeurope.aksapp.io"
+ingressenvname: "etl1"

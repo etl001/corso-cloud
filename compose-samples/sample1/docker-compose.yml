@@ -1,0 +1,17 @@
+version: '3.5'
+
+services:
+
+  etl-nginx:
+    image: nginx:1.19.2
+    container_name: etl-nginx
+    hostname: etl-nginx
+    restart: unless-stopped
+    ports:
+      - 80:80
+    volumes:
+      - ./files/index.html:/usr/share/nginx/html/index.html
+    networks:
+      - etl-nginx-net
+networks:
+  etl-nginx-net:

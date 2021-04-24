@@ -1,0 +1,33 @@
+version: "3.5"
+services:
+  etl-wordpress:
+    image: wordpress
+    restart: unless-stopped
+    container_name: etl-wordpress
+    hostname: etl-wordpress
+    environment:
+      WORDPRESS_DB_HOST: etl-mysql
+      WORDPRESS_DB_USER: etl-user
+      WORDPRESS_DB_PASSWORD: etl-password
+      WORDPRESS_DB_NAME: etl-db
+      WORDPRESS_TABLE_PREFIX: etl
+    ports:
+      - 80:80
+    networks:
+      - etl-wp-net
+  etl-mysql:
+    image: mysql:5.7
+    restart: unless-stopped
+    container_name: etl-mysql
+    hostname: etl-mysql
+    environment:
+      MYSQL_USER: etl-user
+      MYSQL_PASSWORD: etl-password
+      MYSQL_DATABASE: etl-db
+      MYSQL_ROOT_PASSWORD: change_me
+    ports:
+      - 3306:3306
+    networks:
+      - etl-wp-net
+networks:
+  etl-wp-net:
