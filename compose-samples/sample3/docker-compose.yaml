@@ -1,0 +1,195 @@
+version: "3.5"
+services:
+  gitlab:
+      image: gitlab/gitlab-ce:13.11.3-ce.0
+      restart: always
+      container_name: gitlab
+      environment:
+        HOSTNAME: ${FQDN}
+        GITLAB_OMNIBUS_CONFIG: |
+            external_url = "${FQDN}"
+            gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        TZ: 'Europe/Rome'
+        VIRTUAL_HOST: ${FQDN}
+      hostname: ${FQDN}
+      ports:
+        - "2222:22"
+        - 80:80
+      volumes:
+        -  gitlab-config:/etc/gitlab
+        -  gitlab-logs:/var/log/gitlab
+        -  gitlab-data:/var/opt/gitlab'
+      depends_on:
+        - redis
+        - postgresql-gitlab
+      networks:
+        - devops-toolchain
+
+  postgresql-gitlab:
+    image: postgres:9.6.5-alpine
+    restart: always
+    container_name: gitlab_postgresql
+    # https://github.com/docker-library/docs/tree/master/postgres#environment-variables
+    environment:
+      - POSTGRES_USER=gitlab
+      - POSTGRES_DB=gitlabhq_production
+      - POSTGRES_PASSWORD=gitlab
+    volumes:
+      - postgresql-gitlab:/var/lib/postgresql:Z
+    restart: always
+    networks:
+        - devops-toolchain
+
+
+  redis:
+    image: redis:3-alpine
+    restart: always
+    container_name: gitlab_redis
+    command:
+      - --loglevel warning
+    volumes:
+      - redis-data:/var/lib/redis
+    restart: always
+    networks:
+        - devops-toolchain
+
+
+  jenkins:
+    image: perem/jenkins:2.290-jdk11-maven3.6
+    restart: unless-stopped
+    container_name: jenkins
+    hostname: jenkins
+    environment:
+      DOCKER_USER: ${DOCKER_USER_J}
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      - ./psw:/var/jenkins_home/psw
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 8080:8080
+      - 50000:50000
+    networks:
+      - devops-toolchain
+
+
+  postgresql-jira-software:
+    image: postgres:9.5-alpine
+    restart: unless-stopped
+    container_name: postgressql-jira-software
+    ports:
+      - 5433:5432
+    networks:
+      - devops-toolchain
+    volumes:
+      - postgresql-jira-software-data:/var/lib/postgresql/data
+    environment:
+      - 'POSTGRES_USER=jira'
+      # CHANGE THE PASSWORD!
+      - 'POSTGRES_PASSWORD=jellyfish'
+      - 'POSTGRES_DB=jiradb'
+      - 'POSTGRES_ENCODING=UNICODE'
+      - 'POSTGRES_COLLATE=C'
+      - 'POSTGRES_COLLATE_TYPE=C'
+    logging:
+      # limit logs retained on host to 25MB
+      driver: "json-file"
+      options:
+        max-size: "500k"
+        max-file: "50"
+
+
+  postgresql-artifactory:
+    image: docker.bintray.io/postgres:9.6.11
+    container_name: postgresql
+    ports:
+     - 5432:5432
+    environment:
+     - POSTGRES_DB=artifactory
+     # The following must match the DB_USER and DB_PASSWORD values passed to Artifactory
+     - POSTGRES_USER=artifactory
+     - POSTGRES_PASSWORD=password
+    volumes:
+     - postgresql-artifactory-data:/var/lib/postgresql/data
+    restart: always
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 32000
+        hard: 40000
+    networks:
+        - devops-toolchain
+
+
+  artifactory:
+    image: docker.bintray.io/jfrog/artifactory-oss:6.23.7
+    container_name: artifactory
+    ports:
+     - 8181:8081
+    depends_on:
+     - postgresql-artifactory
+    volumes:
+     - artifactory-data:/var/opt/jfrog/artifactory
+    environment:
+     - DB_TYPE=postgresql
+     # The following must match the POSTGRES_USER and POSTGRES_PASSWORD values passed to PostgreSQL
+     - DB_USER=artifactory
+     - DB_PASSWORD=password
+     # Add extra Java options by uncommenting the following line
+     #- EXTRA_JAVA_OPTIONS=-Xms512m -Xmx4g
+    restart: always
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 32000
+        hard: 40000
+    networks:
+      - devops-toolchain
+
+
+  jira-software:
+    image: atlassian/jira-software:8.17.0-EAP02
+    restart: unless-stopped
+    container_name: jira-software
+    hostname: postgresql-jira-software
+    ports:
+      - 8383:8080
+    networks:
+      - devops-toolchain
+
+
+  jira-servicemanagement:
+    image: atlassian/jira-servicemanagement:4.17.0-EAP02-jdk8
+    restart: unless-stopped
+    container_name: jira-service-management
+    hostname: jira-service-management
+    ports:
+      - 8484:8080
+    networks:
+      - devops-toolchain
+
+  portainer:
+    image: portainer/portainer:latest
+    container_name: portainer
+    hostname: portainer
+    restart: unless-stopped
+    ports:
+      - "${PORTAINER_PORT:-9090}:9000"
+    volumes:
+      - portainer-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - devops-toolchain
+
+networks:
+  devops-toolchain:
+volumes:
+  portainer-data:
+  jenkins-home:
+  artifactory-data:
+  postgresql-artifactory-data:
+  postgresql-jira-software-data:
+  postgresql-gitlab:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
+  redis-data:
